@@ -6,7 +6,7 @@ namespace cAlgo
     [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
     public class EMAScalpingBot : Robot
     {
-        private const string Symbol = "DAX"; // Replace with the desired symbol
+        private const string Symbol = "Germany40"; // Replace with the desired symbol
         private const int EMA1Period = 21; // Period for the first EMA
         private const int EMA2Period = 50; // Period for the second EMA
         private const int EMA3Period = 144; // Period for the third EMA
