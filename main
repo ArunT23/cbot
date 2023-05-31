@@ -1,0 +1,96 @@
+using System;
+using cAlgo.API;
+
+namespace cAlgo
+{
+    [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
+    public class EMAScalpingBot : Robot
+    {
+        private const string Symbol = "DAX"; // Replace with the desired symbol
+        private const int EMA1Period = 21; // Period for the first EMA
+        private const int EMA2Period = 50; // Period for the second EMA
+        private const int EMA3Period = 144; // Period for the third EMA
+        private const double StopLossPercentage = 0.0025; // 0.25%
+        private const double TakeProfitMultiplier = 2; // 2:1 take profit ratio
+
+        private ExponentialMovingAverage _ema1;
+        private ExponentialMovingAverage _ema2;
+        private ExponentialMovingAverage _ema3;
+
+        protected override void OnStart()
+        {
+            _ema1 = Indicators.ExponentialMovingAverage(MarketData.GetSeries(Symbol, TimeFrame.Minute, OfferSide.Bid), EMA1Period);
+            _ema2 = Indicators.ExponentialMovingAverage(MarketData.GetSeries(Symbol, TimeFrame.Minute, OfferSide.Bid), EMA2Period);
+            _ema3 = Indicators.ExponentialMovingAverage(MarketData.GetSeries(Symbol, TimeFrame.Minute, OfferSide.Bid), EMA3Period);
+
+            Positions.Opened += OnPositionOpened;
+        }
+
+        protected override void OnBar()
+        {
+            // Check for EMA crossover
+            if (_ema1.Result.HasCrossedAbove(_ema2.Result, 1) && _ema2.Result.HasCrossedAbove(_ema3.Result, 1))
+            {
+                // Uptrend confirmed, look for hidden bull continuation divergence
+                if (HiddenBullDivergence())
+                    OpenPosition(TradeType.Buy);
+            }
+            else if (_ema1.Result.HasCrossedBelow(_ema2.Result, 1) && _ema2.Result.HasCrossedBelow(_ema3.Result, 1))
+            {
+                // Downtrend confirmed, look for hidden bear continuation divergence
+                if (HiddenBearDivergence())
+                    OpenPosition(TradeType.Sell);
+            }
+        }
+
+        private bool HiddenBullDivergence()
+        {
+            // Replace with your custom logic to determine hidden bull divergence
+            // Example: Compare price action, indicators, or other conditions for confirmation
+            return true;
+        }
+
+        private bool HiddenBearDivergence()
+        {
+            // Replace with your custom logic to determine hidden bear divergence
+            // Example: Compare price action, indicators, or other conditions for confirmation
+            return true;
+        }
+
+        private void OpenPosition(TradeType tradeType)
+        {
+            var stopLossPrice = CalculateStopLoss(tradeType);
+            var takeProfitPrice = CalculateTakeProfit(tradeType);
+
+            ExecuteMarketOrder(tradeType, Symbol, VolumeInUnits(), "EMAScalpingBot", stopLossPrice, takeProfitPrice);
+        }
+
+        private double CalculateStopLoss(TradeType tradeType)
+        {
+            var ema1Value = tradeType == TradeType.Buy ? _ema1.Result.Last(1) : _ema1.Result.Last(0);
+            var stopLossDistance = ema1Value * Symbol.PipSize * StopLossPercentage;
+
+            return tradeType == TradeType.Buy ? Symbol.Bid - stopLossDistance : Symbol.Ask + stopLossDistance;
+        }
+
+        private double CalculateTakeProfit(TradeType tradeType)
+        {
+            var ema1Value = tradeType == TradeType.Buy ? _ema1.Result.Last(1) : _ema1.Result.Last(0);
+            var takeProfitDistance = ema1Value * Symbol.PipSize * TakeProfitMultiplier;
+
+            return tradeType == TradeType.Buy ? Symbol.Bid + takeProfitDistance : Symbol.Ask - takeProfitDistance;
+        }
+
+        private long VolumeInUnits()
+        {
+            // Replace with your desired position size calculation logic
+            return Symbol.QuantityToVolumeInUnits(10000);
+        }
+
+        private void OnPositionOpened(PositionOpenedEventArgs args)
+        {
+            if (args.Position.Label == "EMAScalpingBot")
+                Print($"Position opened: {args.Position.TradeType} {args.Position.Volume} lots at {args.Position.EntryPrice}");
+        }
+    }
+}
