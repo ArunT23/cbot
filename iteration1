@@ -45,11 +45,11 @@ namespace cAlgo
                     {
                         // Enter long trade
                         var volume = Symbol.NormalizeVolumeInUnits(1);
-                        var stopLoss = (Symbol.Bid - Symbol.PipSize * 0.0025).ToString();
-                        var takeProfit = (Symbol.Bid + (Symbol.Bid - stopLoss)).ToString();
-                        var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, volume, "Long Trade", null, stopLoss, takeProfit);
+                        var stopLoss = Symbol.Bid - Symbol.PipSize * 0.0025;
+                        var takeProfit = Symbol.Bid + (Symbol.Bid - stopLoss);
+                        var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, volume, "Long Trade", null, stopLoss, takeProfit.ToString());
                         if (result.IsSuccessful)
-                            ModifyPosition(result.Position, Symbol.Bid, stopLoss);
+                            ModifyPosition(result.Position, Symbol.Bid, stopLoss.ToString());
                     }
                 }
                 else if (CrossedBelow(ema21Values, ema50Values, ema144Values, ema21Values.Count - 1) &&
@@ -59,11 +59,11 @@ namespace cAlgo
                     {
                         // Enter short trade
                         var volume = Symbol.NormalizeVolumeInUnits(1);
-                        var stopLoss = (Symbol.Ask + Symbol.PipSize * 0.0025).ToString();
-                        var takeProfit = (Symbol.Ask - (stopLoss - Symbol.Ask)).ToString();
-                        var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, volume, "Short Trade", null, stopLoss, takeProfit);
+                        var stopLoss = Symbol.Ask + Symbol.PipSize * 0.0025;
+                        var takeProfit = Symbol.Ask - (stopLoss - Symbol.Ask);
+                        var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, volume, "Short Trade", null, stopLoss, takeProfit.ToString());
                         if (result.IsSuccessful)
-                            ModifyPosition(result.Position, Symbol.Ask, stopLoss);
+                            ModifyPosition(result.Position, Symbol.Ask, stopLoss.ToString());
                     }
                 }
             }
