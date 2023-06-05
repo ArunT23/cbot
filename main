@@ -1,96 +1,102 @@
-using System;
 using cAlgo.API;
+using System;
 
 namespace cAlgo
 {
     [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
-    public class EMAScalpingBot : Robot
+    public class ScalpingBot : Robot
     {
-        private const string Symbol = "Germany40"; // Replace with the desired symbol
-        private const int EMA1Period = 21; // Period for the first EMA
-        private const int EMA2Period = 50; // Period for the second EMA
-        private const int EMA3Period = 144; // Period for the third EMA
-        private const double StopLossPercentage = 0.0025; // 0.25%
-        private const double TakeProfitMultiplier = 2; // 2:1 take profit ratio
-
-        private ExponentialMovingAverage _ema1;
-        private ExponentialMovingAverage _ema2;
-        private ExponentialMovingAverage _ema3;
+        private ExponentialMovingAverage ema21;
+        private ExponentialMovingAverage ema50;
+        private ExponentialMovingAverage ema144;
+        private RelativeStrengthIndex rsi;
 
         protected override void OnStart()
         {
-            _ema1 = Indicators.ExponentialMovingAverage(MarketData.GetSeries(Symbol, TimeFrame.Minute, OfferSide.Bid), EMA1Period);
-            _ema2 = Indicators.ExponentialMovingAverage(MarketData.GetSeries(Symbol, TimeFrame.Minute, OfferSide.Bid), EMA2Period);
-            _ema3 = Indicators.ExponentialMovingAverage(MarketData.GetSeries(Symbol, TimeFrame.Minute, OfferSide.Bid), EMA3Period);
-
-            Positions.Opened += OnPositionOpened;
+            ema21 = Indicators.ExponentialMovingAverage(MarketSeries.Close, 21);
+            ema50 = Indicators.ExponentialMovingAverage(MarketSeries.Close, 50);
+            ema144 = Indicators.ExponentialMovingAverage(MarketSeries.Close, 144);
+            rsi = Indicators.RelativeStrengthIndex(MarketSeries.Close, 14);
         }
 
         protected override void OnBar()
         {
-            // Check for EMA crossover
-            if (_ema1.Result.HasCrossedAbove(_ema2.Result, 1) && _ema2.Result.HasCrossedAbove(_ema3.Result, 1))
+            var currentBarOpenTime = MarketSeries.OpenTime.Last(0);
+
+            if (IsLondonSession(currentBarOpenTime) && IsRestrictedTime(currentBarOpenTime))
             {
-                // Uptrend confirmed, look for hidden bull continuation divergence
-                if (HiddenBullDivergence())
-                    OpenPosition(TradeType.Buy);
+                if (ema21.Result.HasCrossedAbove(ema144.Result) && ema50.Result.HasCrossedAbove(ema144.Result))
+                {
+                    if (rsi.Result.Last(1) > 70 && rsi.Result.Last(2) < 70)
+                    {
+                        // Enter long trade
+                        var volume = Symbol.NormalizeVolumeInUnits(Symbol.QuantityToVolumeInUnits(Account.Equity * 0.01, Symbol));
+                        var stopLoss = Symbol.Bid - Symbol.PipSize * 0.0025;
+                        var takeProfit = Symbol.Bid + (Symbol.Bid - stopLoss) * 2;
+                        var result = ExecuteMarketOrder(TradeType.Buy, Symbol, volume, "Long Trade", null, stopLoss, takeProfit);
+                        if (result.Error == ErrorCode.NoError)
+                            ModifyPosition(result.Position, Symbol.Bid, stopLoss);
+                    }
+                }
+                else if (ema21.Result.HasCrossedBelow(ema144.Result) && ema50.Result.HasCrossedBelow(ema144.Result))
+                {
+                    if (rsi.Result.Last(1) < 30 && rsi.Result.Last(2) > 30)
+                    {
+                        // Enter short trade
+                        var volume = Symbol.NormalizeVolumeInUnits(Symbol.QuantityToVolumeInUnits(Account.Equity * 0.01, Symbol));
+                        var stopLoss = Symbol.Ask + Symbol.PipSize * 0.0025;
+                        var takeProfit = Symbol.Ask - (stopLoss - Symbol.Ask) * 2;
+                        var result = ExecuteMarketOrder(TradeType.Sell, Symbol, volume, "Short Trade", null, stopLoss, takeProfit);
+                        if (result.Error == ErrorCode.NoError)
+                            ModifyPosition(result.Position, Symbol.Ask, stopLoss);
+                    }
+                }
             }
-            else if (_ema1.Result.HasCrossedBelow(_ema2.Result, 1) && _ema2.Result.HasCrossedBelow(_ema3.Result, 1))
+        }
+
+        private bool IsLondonSession(DateTime time)
+        {
+            // Adjust the time zone if necessary
+            var londonTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/London");
+            var londonSessionStart = new DateTime(time.Year, time.Month, time.Day, 8, 0, 0).AddMinutes(-1);
+            var londonSessionEnd = new DateTime(time.Year, time.Month, time.Day, 16, 0, 0).AddMinutes(1);
+
+            var localTime = TimeZoneInfo.ConvertTimeFromUtc(time, londonTimeZone);
+
+            return localTime >= londonSessionStart && localTime <= londonSessionEnd;
+        }
+
+        private bool IsRestrictedTime(DateTime time)
+        {
+            var firstHourStart = new DateTime(time.Year, time.Month, time.Day, 8, 0, 0).AddMinutes(-1);
+            var firstHourEnd = new DateTime(time.Year, time.Month, time.Day, 9, 0, 0).AddMinutes(1);
+
+            var finalHourStart = new DateTime(time.Year, time.Month, time.Day, 15, 0, 0).AddMinutes(-1);
+            var finalHourEnd = new DateTime(time.Year, time.Month, time.Day, 16, 0, 0).AddMinutes(1);
+
+            var localTime = TimeZoneInfo.ConvertTimeFromUtc(time, TimeZoneInfo.Local);
+
+            return (localTime >= firstHourStart && localTime <= firstHourEnd) || (localTime >= finalHourStart && localTime <= finalHourEnd);
+        }
+
+        protected override void OnTick()
+        {
+            foreach (var position in Positions)
             {
-                // Downtrend confirmed, look for hidden bear continuation divergence
-                if (HiddenBearDivergence())
-                    OpenPosition(TradeType.Sell);
+                if (position.StopLoss != null && position.Pips >= Symbol.PipSize * 10)
+                {
+                    var breakEvenPrice = position.EntryPrice;
+                    if (position.TradeType == TradeType.Buy)
+                        breakEvenPrice += Symbol.PipSize * 0.0025;
+                    else if (position.TradeType == TradeType.Sell)
+                        breakEvenPrice -= Symbol.PipSize * 0.0025;
+
+                    if (position.TradeType == TradeType.Buy && Symbol.Bid >= breakEvenPrice)
+                        ModifyPosition(position, breakEvenPrice, position.TakeProfit);
+                    else if (position.TradeType == TradeType.Sell && Symbol.Ask <= breakEvenPrice)
+                        ModifyPosition(position, breakEvenPrice, position.TakeProfit);
+                }
             }
-        }
-
-        private bool HiddenBullDivergence()
-        {
-            // Replace with your custom logic to determine hidden bull divergence
-            // Example: Compare price action, indicators, or other conditions for confirmation
-            return true;
-        }
-
-        private bool HiddenBearDivergence()
-        {
-            // Replace with your custom logic to determine hidden bear divergence
-            // Example: Compare price action, indicators, or other conditions for confirmation
-            return true;
-        }
-
-        private void OpenPosition(TradeType tradeType)
-        {
-            var stopLossPrice = CalculateStopLoss(tradeType);
-            var takeProfitPrice = CalculateTakeProfit(tradeType);
-
-            ExecuteMarketOrder(tradeType, Symbol, VolumeInUnits(), "EMAScalpingBot", stopLossPrice, takeProfitPrice);
-        }
-
-        private double CalculateStopLoss(TradeType tradeType)
-        {
-            var ema1Value = tradeType == TradeType.Buy ? _ema1.Result.Last(1) : _ema1.Result.Last(0);
-            var stopLossDistance = ema1Value * Symbol.PipSize * StopLossPercentage;
-
-            return tradeType == TradeType.Buy ? Symbol.Bid - stopLossDistance : Symbol.Ask + stopLossDistance;
-        }
-
-        private double CalculateTakeProfit(TradeType tradeType)
-        {
-            var ema1Value = tradeType == TradeType.Buy ? _ema1.Result.Last(1) : _ema1.Result.Last(0);
-            var takeProfitDistance = ema1Value * Symbol.PipSize * TakeProfitMultiplier;
-
-            return tradeType == TradeType.Buy ? Symbol.Bid + takeProfitDistance : Symbol.Ask - takeProfitDistance;
-        }
-
-        private long VolumeInUnits()
-        {
-            // Replace with your desired position size calculation logic
-            return Symbol.QuantityToVolumeInUnits(10000);
-        }
-
-        private void OnPositionOpened(PositionOpenedEventArgs args)
-        {
-            if (args.Position.Label == "EMAScalpingBot")
-                Print($"Position opened: {args.Position.TradeType} {args.Position.Volume} lots at {args.Position.EntryPrice}");
         }
     }
 }
