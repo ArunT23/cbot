@@ -26,12 +26,13 @@ namespace cAlgo
 
             if (IsLondonSession(currentBarOpenTime) && IsRestrictedTime(currentBarOpenTime))
             {
-                if (CrossedAbove(ema21.Result, ema144.Result, 1) && CrossedAbove(ema50.Result, ema144.Result, 1))
+                if (CrossedAbove(ema21.Result, ema50.Result, ema144.Result, 1) &&
+                    CrossedAbove(ema50.Result, ema21.Result, ema144.Result, 1))
                 {
                     if (rsi.Result.Last(1) > 70 && rsi.Result.Last(2) < 70)
                     {
                         // Enter long trade
-                        var volume = Symbol.NormalizeVolumeInUnits(Symbol.QuantityToVolumeInUnits(Account.Equity, Symbol), RoundingMode.Down);
+                        var volume = Symbol.QuantityToVolume(Account.Equity, RoundingMode.ToNearest);
                         var stopLoss = Symbol.Bid - Symbol.PipSize * 0.0025;
                         var takeProfit = Symbol.Bid + (Symbol.Bid - stopLoss) * 2;
                         var result = ExecuteMarketOrder(TradeType.Buy, Symbol, volume, "Long Trade", null, stopLoss, takeProfit);
@@ -39,12 +40,13 @@ namespace cAlgo
                             ModifyPosition(result.Position, Symbol.Bid, stopLoss);
                     }
                 }
-                else if (CrossedBelow(ema21.Result, ema144.Result, 1) && CrossedBelow(ema50.Result, ema144.Result, 1))
+                else if (CrossedBelow(ema21.Result, ema50.Result, ema144.Result, 1) &&
+                    CrossedBelow(ema50.Result, ema21.Result, ema144.Result, 1))
                 {
                     if (rsi.Result.Last(1) < 30 && rsi.Result.Last(2) > 30)
                     {
                         // Enter short trade
-                        var volume = Symbol.NormalizeVolumeInUnits(Symbol.QuantityToVolumeInUnits(Account.Equity, Symbol), RoundingMode.Down);
+                        var volume = Symbol.QuantityToVolume(Account.Equity, RoundingMode.ToNearest);
                         var stopLoss = Symbol.Ask + Symbol.PipSize * 0.0025;
                         var takeProfit = Symbol.Ask - (stopLoss - Symbol.Ask) * 2;
                         var result = ExecuteMarketOrder(TradeType.Sell, Symbol, volume, "Short Trade", null, stopLoss, takeProfit);
@@ -55,14 +57,20 @@ namespace cAlgo
             }
         }
 
-        private bool CrossedAbove(double[] values1, double[] values2, int index)
+        private bool CrossedAbove(double[] values1, double[] values2, double[] values3, int index)
         {
-            return values1[index - 1] < values2[index - 1] && values1[index] > values2[index];
+            return values1[index - 1] < values2[index - 1] &&
+                   values1[index] > values2[index] &&
+                   values2[index - 1] < values3[index - 1] &&
+                   values2[index] > values3[index];
         }
 
-        private bool CrossedBelow(double[] values1, double[] values2, int index)
+        private bool CrossedBelow(double[] values1, double[] values2, double[] values3, int index)
         {
-            return values1[index - 1] > values2[index - 1] && values1[index] < values2[index];
+            return values1[index - 1] > values2[index - 1] &&
+                   values1[index] < values2[index] &&
+                   values2[index - 1] > values3[index - 1] &&
+                   values2[index] < values3[index];
         }
 
         private bool IsLondonSession(DateTime time)
