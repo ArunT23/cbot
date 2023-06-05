@@ -48,7 +48,7 @@ namespace cAlgo
                         var stopLoss = Symbol.Bid - Symbol.PipSize * 0.0025;
                         var takeProfit = Symbol.Bid + (Symbol.Bid - stopLoss) * 2;
                         var result = ExecuteMarketOrder(TradeType.Buy, Symbol, volume, "Long Trade", null, stopLoss, takeProfit);
-                        if (result.Error == TradeResultCode.Success)
+                        if (result.IsSuccessful)
                             ModifyPosition(result.Position, Symbol.Bid, stopLoss);
                     }
                 }
@@ -62,7 +62,7 @@ namespace cAlgo
                         var stopLoss = Symbol.Ask + Symbol.PipSize * 0.0025;
                         var takeProfit = Symbol.Ask - (stopLoss - Symbol.Ask) * 2;
                         var result = ExecuteMarketOrder(TradeType.Sell, Symbol, volume, "Short Trade", null, stopLoss, takeProfit);
-                        if (result.Error == TradeResultCode.Success)
+                        if (result.IsSuccessful)
                             ModifyPosition(result.Position, Symbol.Ask, stopLoss);
                     }
                 }
