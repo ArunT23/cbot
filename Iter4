@@ -43,9 +43,14 @@ namespace cAlgo
                     var volume = Symbol.NormalizeVolumeInUnits(1);
                     var stopLoss = Symbol.Bid - Symbol.PipSize * 0.0025;
                     var takeProfit = Symbol.Bid + (Symbol.Bid - stopLoss) * 2;
-                    var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, volume, "Long Trade", null, stopLoss.ToString(), takeProfit.ToString());
-                    if (result.IsSuccessful)
-                        ModifyPosition(result.Position, Symbol.Bid, stopLoss);
+
+                    double parsedStopLoss, parsedTakeProfit;
+                    if (double.TryParse(stopLoss.ToString(), out parsedStopLoss) && double.TryParse(takeProfit.ToString(), out parsedTakeProfit))
+                    {
+                        var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, volume, "Long Trade", null, parsedStopLoss, parsedTakeProfit);
+                        if (result.IsSuccessful)
+                            ModifyPosition(result.Position, Symbol.Bid, parsedStopLoss);
+                    }
                 }
             }
             else if (CrossedBelow(ema21Values, ema50Values, ema144Values, ema21Values.Count - 1) &&
@@ -57,9 +62,14 @@ namespace cAlgo
                     var volume = Symbol.NormalizeVolumeInUnits(1);
                     var stopLoss = Symbol.Ask + Symbol.PipSize * 0.0025;
                     var takeProfit = Symbol.Ask - (stopLoss - Symbol.Ask) * 2;
-                    var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, volume, "Short Trade", null, stopLoss.ToString(), takeProfit.ToString());
-                    if (result.IsSuccessful)
-                        ModifyPosition(result.Position, Symbol.Ask, stopLoss);
+
+                    double parsedStopLoss, parsedTakeProfit;
+                    if (double.TryParse(stopLoss.ToString(), out parsedStopLoss) && double.TryParse(takeProfit.ToString(), out parsedTakeProfit))
+                    {
+                        var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, volume, "Short Trade", null, parsedStopLoss, parsedTakeProfit);
+                        if (result.IsSuccessful)
+                            ModifyPosition(result.Position, Symbol.Ask, parsedStopLoss);
+                    }
                 }
             }
         }
