@@ -47,9 +47,9 @@ namespace cAlgo
                         var volume = Symbol.NormalizeVolumeInUnits(1);
                         var stopLoss = Symbol.Bid - Symbol.PipSize * 0.0025;
                         var takeProfit = Symbol.Bid + (Symbol.Bid - stopLoss);
-                        var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, volume, "Long Trade", null, stopLoss, takeProfit.ToString());
+                        var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, volume, "Long Trade", null, stopLoss, takeProfit);
                         if (result.IsSuccessful)
-                            ModifyPosition(result.Position, Symbol.Bid, stopLoss.ToString());
+                            ModifyPosition(result.Position, Symbol.Bid, stopLoss);
                     }
                 }
                 else if (CrossedBelow(ema21Values, ema50Values, ema144Values, ema21Values.Count - 1) &&
@@ -61,9 +61,9 @@ namespace cAlgo
                         var volume = Symbol.NormalizeVolumeInUnits(1);
                         var stopLoss = Symbol.Ask + Symbol.PipSize * 0.0025;
                         var takeProfit = Symbol.Ask - (stopLoss - Symbol.Ask);
-                        var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, volume, "Short Trade", null, stopLoss, takeProfit.ToString());
+                        var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, volume, "Short Trade", null, stopLoss, takeProfit);
                         if (result.IsSuccessful)
-                            ModifyPosition(result.Position, Symbol.Ask, stopLoss.ToString());
+                            ModifyPosition(result.Position, Symbol.Ask, stopLoss);
                     }
                 }
             }
@@ -123,9 +123,9 @@ namespace cAlgo
                         breakEvenPrice -= Symbol.PipSize * 0.0025;
 
                     if (position.TradeType == TradeType.Buy && Symbol.Bid >= breakEvenPrice)
-                        ModifyPosition(position, breakEvenPrice.ToString(), position.TakeProfit);
+                        ModifyPosition(position, breakEvenPrice, position.TakeProfit);
                     else if (position.TradeType == TradeType.Sell && Symbol.Ask <= breakEvenPrice)
-                        ModifyPosition(position, breakEvenPrice.ToString(), position.TakeProfit);
+                        ModifyPosition(position, breakEvenPrice, position.TakeProfit);
                 }
             }
         }
