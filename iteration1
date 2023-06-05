@@ -44,10 +44,10 @@ namespace cAlgo
                     if (rsiValues[rsiValues.Count - 2] > 70 && rsiValues[rsiValues.Count - 1] < 70)
                     {
                         // Enter long trade
-                        var volume = Symbol.NormalizeVolumeInUnits(1);
+                        var volume = Symbol.NormalizeVolumeInUnits(Symbol.QuantityToVolumeInUnits(1));
                         var stopLoss = Symbol.Bid - Symbol.PipSize * 0.0025;
                         var takeProfit = Symbol.Bid + (Symbol.Bid - stopLoss);
-                        var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, volume, "Long Trade", null, stopLoss.ToString(), takeProfit.ToString());
+                        var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, volume, "Long Trade", null, stopLoss, takeProfit);
                         if (result.IsSuccessful)
                             ModifyPosition(result.Position, Symbol.Bid, stopLoss);
                     }
@@ -58,10 +58,10 @@ namespace cAlgo
                     if (rsiValues[rsiValues.Count - 2] < 30 && rsiValues[rsiValues.Count - 1] > 30)
                     {
                         // Enter short trade
-                        var volume = Symbol.NormalizeVolumeInUnits(1);
+                        var volume = Symbol.NormalizeVolumeInUnits(Symbol.QuantityToVolumeInUnits(1));
                         var stopLoss = Symbol.Ask + Symbol.PipSize * 0.0025;
                         var takeProfit = Symbol.Ask - (stopLoss - Symbol.Ask);
-                        var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, volume, "Short Trade", null, stopLoss.ToString(), takeProfit.ToString());
+                        var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, volume, "Short Trade", null, stopLoss, takeProfit);
                         if (result.IsSuccessful)
                             ModifyPosition(result.Position, Symbol.Ask, stopLoss);
                     }
