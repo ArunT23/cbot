@@ -1,0 +1,101 @@
+using cAlgo.API;
+using cAlgo.API.Indicators;
+using System;
+using System.Collections.Generic;
+
+namespace cAlgo
+{
+    [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.FullAccess)]
+    public class ScalpingBot : Robot
+    {
+        private ExponentialMovingAverage ema21;
+        private ExponentialMovingAverage ema50;
+        private ExponentialMovingAverage ema144;
+        private RelativeStrengthIndex rsi;
+
+        private List<double> ema21Values = new List<double>();
+        private List<double> ema50Values = new List<double>();
+        private List<double> ema144Values = new List<double>();
+        private List<double> rsiValues = new List<double>();
+
+        protected override void OnStart()
+        {
+            ema21 = Indicators.ExponentialMovingAverage(Bars.ClosePrices, 21);
+            ema50 = Indicators.ExponentialMovingAverage(Bars.ClosePrices, 50);
+            ema144 = Indicators.ExponentialMovingAverage(Bars.ClosePrices, 144);
+            rsi = Indicators.RelativeStrengthIndex(Bars.ClosePrices, 14);
+        }
+
+        protected override void OnBar()
+        {
+            // Update indicator values
+            ema21Values.Add(ema21.Result.LastValue);
+            ema50Values.Add(ema50.Result.LastValue);
+            ema144Values.Add(ema144.Result.LastValue);
+            rsiValues.Add(rsi.Result.LastValue);
+
+            if (CrossedAbove(ema21Values, ema50Values, ema144Values, ema21Values.Count - 1) &&
+                CrossedAbove(ema50Values, ema21Values, ema144Values, ema50Values.Count - 1) &&
+                rsiValues[rsiValues.Count - 1] < 30)
+            {
+                // Enter long trade
+                var volume = Symbol.NormalizeVolumeInUnits(1);
+                var stopLoss = Symbol.Bid - Symbol.PipSize * 0.0025;
+                var takeProfit = Symbol.Bid + (Symbol.Bid - stopLoss) * 2;
+
+                var result = ExecuteMarketOrder(TradeType.Buy, Symbol.Name, volume, "Long Trade", stopLoss, takeProfit);
+                if (result.IsSuccessful)
+                    ModifyPosition(result.Position, Symbol.Bid, stopLoss);
+            }
+            else if (CrossedBelow(ema21Values, ema50Values, ema144Values, ema21Values.Count - 1) &&
+                     CrossedBelow(ema50Values, ema21Values, ema144Values, ema50Values.Count - 1) &&
+                     rsiValues[rsiValues.Count - 1] > 70)
+            {
+                // Enter short trade
+                var volume = Symbol.NormalizeVolumeInUnits(1);
+                var stopLoss = Symbol.Ask + Symbol.PipSize * 0.0025;
+                var takeProfit = Symbol.Ask - (stopLoss - Symbol.Ask) * 2;
+
+                var result = ExecuteMarketOrder(TradeType.Sell, Symbol.Name, volume, "Short Trade", stopLoss, takeProfit);
+                if (result.IsSuccessful)
+                    ModifyPosition(result.Position, Symbol.Ask, stopLoss);
+            }
+        }
+
+        private bool CrossedAbove(List<double> values1, List<double> values2, List<double> values3, int index)
+        {
+            return values1[index - 1] < values2[index - 1] &&
+                   values1[index] > values2[index] &&
+                   values2[index - 1] < values3[index - 1] &&
+                   values2[index] > values3[index];
+        }
+
+        private bool CrossedBelow(List<double> values1, List<double> values2, List<double> values3, int index)
+        {
+            return values1[index - 1] > values2[index - 1] &&
+                   values1[index] < values2[index] &&
+                   values2[index - 1] > values3[index - 1] &&
+                   values2[index] < values3[index];
+        }
+
+        protected override void OnTick()
+        {
+            foreach (var position in Positions)
+            {
+                if (position.StopLoss != null && position.Pips >= Symbol.PipSize * 10)
+                {
+                    var breakEvenPrice = position.EntryPrice;
+                    if (position.TradeType == TradeType.Buy)
+                        breakEvenPrice += Symbol.PipSize * 0.0025;
+                    else if (position.TradeType == TradeType.Sell)
+                        breakEvenPrice -= Symbol.PipSize * 0.0025;
+
+                    if (position.TradeType == TradeType.Buy && Symbol.Bid >= breakEvenPrice)
+                        ModifyPosition(position, breakEvenPrice, position.TakeProfit);
+                    else if (position.TradeType == TradeType.Sell && Symbol.Ask <= breakEvenPrice)
+                        ModifyPosition(position, breakEvenPrice, position.TakeProfit);
+                }
+            }
+        }
+    }
+}
