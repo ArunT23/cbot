@@ -1,4 +1,3 @@
-#To test in CTrader
 
 using cAlgo.API;
 using cAlgo.API.Indicators;
